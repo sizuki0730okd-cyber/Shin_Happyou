@@ -118,7 +118,7 @@ async function createStreamResponse(response: Response, isSearch = false, search
         return new Response(JSON.stringify({ error: 'AIとの接続に失敗しました。' }), { status: 500 });
     }
 
-    console.log('Step 4: Stream connected. Starting to read data...');
+    console.log('Step 4: Stream connected. Starting robust parsing...');
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
@@ -133,6 +133,8 @@ async function createStreamResponse(response: Response, isSearch = false, search
                 if (!reader) throw new Error('Response body is null');
 
                 let chunkCount = 0;
+                let incompleteLine = ''; // ここに分割されたデータを一時保存する
+
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) {
@@ -141,20 +143,28 @@ async function createStreamResponse(response: Response, isSearch = false, search
                     }
 
                     const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
+                    const lines = (incompleteLine + chunk).split('\n');
+
+                    // 最後の要素はまだ完了していない行の可能性があるため、バッファに保存
+                    incompleteLine = lines.pop() || '';
 
                     for (const line of lines) {
-                        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) continue;
+
+                        if (trimmedLine.startsWith('data: ') && trimmedLine !== 'data: [DONE]') {
                             try {
-                                const data = JSON.parse(line.slice(6));
+                                const data = JSON.parse(trimmedLine.slice(6));
                                 const content = data.choices?.[0]?.delta?.content;
                                 if (content) {
                                     if (chunkCount === 0) console.log('>>> FIRST CONTENT CHUNK RECEIVED <<<');
                                     chunkCount++;
                                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
                                 }
-                            } catch { }
-                        } else if (line === 'data: [DONE]') {
+                            } catch (e) {
+                                // JSONが不完全な場合はログを出さずにスルー（通常はpopにより防げるが念のため）
+                            }
+                        } else if (trimmedLine === 'data: [DONE]') {
                             console.log('Stream received [DONE] signal');
                             controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                         }
