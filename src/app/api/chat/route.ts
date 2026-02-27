@@ -2,7 +2,9 @@ import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT, MODEL_ID, SEARCH_TOOL } from '@/lib/constants';
 import { performWebSearch } from '@/lib/serper';
 
+// Vercel の 10 秒制限を回避するための設定
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
     try {
@@ -13,7 +15,7 @@ export async function POST(request: NextRequest) {
         if (!apiKey) {
             console.error('Error: OPENROUTER_API_KEY is missing');
             return new Response(
-                JSON.stringify({ error: 'OPENROUTER_API_KEY が設定されていません。' }),
+                JSON.stringify({ error: 'APIキーが設定されていません。' }),
                 { status: 500, headers: { 'Content-Type': 'application/json' } }
             );
         }
@@ -22,12 +24,15 @@ export async function POST(request: NextRequest) {
         const conversationMessages = [systemMessage, ...messages.slice(-40)];
 
         console.log('Fetching initial response from OpenRouter...');
+
+        // OpenRouter への接続（最初の判定）
         const initialResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey}`,
+                'Authorization': `Bearer ${apiKey.trim()}`, // trim() で余計な空白を除去
                 'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://shin-kun.vercel.app',
+                // リファラーによるエラーを防ぐため設定を緩和
+                'HTTP-Referer': 'https://github.com/shizuki/shin-kun',
                 'X-Title': 'Shin-kun',
             },
             body: JSON.stringify({
@@ -42,7 +47,7 @@ export async function POST(request: NextRequest) {
             const errorText = await initialResponse.text();
             console.error(`OpenRouter API Error: ${initialResponse.status}`, errorText);
             return new Response(
-                JSON.stringify({ error: `APIエラー: ${initialResponse.status}` }),
+                JSON.stringify({ error: `AI通信エラー: ${initialResponse.status}` }),
                 { status: initialResponse.status, headers: { 'Content-Type': 'application/json' } }
             );
         }
@@ -50,6 +55,7 @@ export async function POST(request: NextRequest) {
         const initialData = await initialResponse.json();
         const choice = initialData.choices?.[0];
 
+        // ツール（Web検索）が呼ばれた場合
         if (choice?.message?.tool_calls && choice.message.tool_calls.length > 0) {
             const toolCall = choice.message.tool_calls[0];
             console.log('Tool call detected:', toolCall.function.name);
@@ -74,9 +80,9 @@ export async function POST(request: NextRequest) {
                 const finalResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${apiKey}`,
+                        'Authorization': `Bearer ${apiKey.trim()}`,
                         'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://shin-kun.vercel.app',
+                        'HTTP-Referer': 'https://github.com/shizuki/shin-kun',
                         'X-Title': 'Shin-kun',
                     },
                     body: JSON.stringify({
@@ -94,9 +100,9 @@ export async function POST(request: NextRequest) {
         const streamResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey}`,
+                'Authorization': `Bearer ${apiKey.trim()}`,
                 'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://shin-kun.vercel.app',
+                'HTTP-Referer': 'https://github.com/shizuki/shin-kun',
                 'X-Title': 'Shin-kun',
             },
             body: JSON.stringify({
@@ -111,7 +117,7 @@ export async function POST(request: NextRequest) {
         console.error('--- Server Error ---');
         console.error(error);
         return new Response(
-            JSON.stringify({ error: `サーバーエラー: ${String(error)}` }),
+            JSON.stringify({ error: `サーバーエラーが発生しました。` }),
             { status: 500, headers: { 'Content-Type': 'application/json' } }
         );
     }
@@ -129,18 +135,18 @@ async function createStreamResponse(response: Response, isSearch = false, search
 
     const stream = new ReadableStream({
         async start(controller) {
-            if (isSearch && searchQuery) {
-                const meta = JSON.stringify({ searchQuery, searchPerformed: true });
-                controller.enqueue(encoder.encode(`data: ${meta}\n\n`));
-            }
-
-            const reader = response.body?.getReader();
-            if (!reader) {
-                controller.close();
-                return;
-            }
-
             try {
+                if (isSearch && searchQuery) {
+                    const meta = JSON.stringify({ searchQuery, searchPerformed: true });
+                    controller.enqueue(encoder.encode(`data: ${meta}\n\n`));
+                }
+
+                const reader = response.body?.getReader();
+                if (!reader) {
+                    controller.close();
+                    return;
+                }
+
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
