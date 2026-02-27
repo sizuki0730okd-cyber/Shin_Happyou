@@ -1,0 +1,391 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border-color);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-user-bubble: var(--user-bubble);
+  --color-user-bubble-text: var(--user-bubble-text);
+  --color-assistant-bubble: var(--assistant-bubble);
+  --color-assistant-bubble-text: var(--assistant-bubble-text);
+  --color-input-bg: var(--input-bg);
+  --color-input-border: var(--input-border);
+  --color-input-focus: var(--input-focus);
+  --font-sans: 'Inter', 'Noto Sans JP', sans-serif;
+  --font-mono: 'Geist Mono', 'Fira Code', monospace;
+}
+
+:root {
+  --background: #f7f7f8;
+  --foreground: #1a1a2e;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --secondary: #8b5cf6;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --border-color: #e2e8f0;
+  --card: #ffffff;
+  --card-foreground: #1a1a2e;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --sidebar-bg: #f9fafb;
+  --sidebar-hover: #f1f5f9;
+  --sidebar-active: #e8edf5;
+  --user-bubble: #6366f1;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #ffffff;
+  --assistant-bubble-text: #1a1a2e;
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+  --input-focus: #6366f1;
+}
+
+.dark {
+  --background: #0f0f23;
+  --foreground: #e2e8f0;
+  --primary: #818cf8;
+  --primary-hover: #6366f1;
+  --secondary: #a78bfa;
+  --muted: #1e1e3a;
+  --muted-foreground: #94a3b8;
+  --border-color: #2d2d50;
+  --card: #1a1a35;
+  --card-foreground: #e2e8f0;
+  --accent: #1e1e3a;
+  --accent-foreground: #e2e8f0;
+  --sidebar-bg: #0d0d20;
+  --sidebar-hover: #1a1a35;
+  --sidebar-active: #252550;
+  --user-bubble: #6366f1;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #1a1a35;
+  --assistant-bubble-text: #e2e8f0;
+  --input-bg: #1a1a35;
+  --input-border: #2d2d50;
+  --input-focus: #818cf8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', 'Noto Sans JP', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 3px;
+  opacity: 0.5;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.8;
+}
+
+/* Markdown styling */
+.markdown-body h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+}
+
+.markdown-body h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 0.875rem;
+  margin-bottom: 0.375rem;
+  line-height: 1.35;
+}
+
+.markdown-body h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.markdown-body p {
+  margin-bottom: 0.625rem;
+  line-height: 1.75;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.5rem;
+  margin-bottom: 0.625rem;
+}
+
+.markdown-body li {
+  margin-bottom: 0.25rem;
+  line-height: 1.65;
+}
+
+.markdown-body blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.markdown-body th {
+  background: var(--muted);
+  font-weight: 600;
+}
+
+.markdown-body a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-body a:hover {
+  opacity: 0.8;
+}
+
+.markdown-body code:not(pre code) {
+  background: var(--muted);
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+  font-family: var(--font-mono);
+}
+
+.markdown-body pre {
+  background: #1e1e2e !important;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  position: relative;
+}
+
+.markdown-body pre code {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  font-family: var(--font-mono);
+  color: #cdd6f4;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 1rem 0;
+}
+
+/* Typing animation */
+@keyframes blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background-color: var(--primary);
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+}
+
+/* Dot animation for typing indicator */
+@keyframes dotPulse {
+
+  0%,
+  60%,
+  100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+
+  30% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+.dot-animation span:nth-child(1) {
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+
+.dot-animation span:nth-child(2) {
+  animation: dotPulse 1.4s ease-in-out 0.2s infinite;
+}
+
+.dot-animation span:nth-child(3) {
+  animation: dotPulse 1.4s ease-in-out 0.4s infinite;
+}
+
+/* Search indicator animation */
+@keyframes searchPulse {
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.search-pulse {
+  animation: searchPulse 1.5s ease-in-out infinite;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .glass {
+  background: rgba(15, 15, 35, 0.8);
+}
+
+/* Code block copy button */
+.code-block-wrapper {
+  position: relative;
+}
+
+.copy-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.25rem;
+  color: #a0a0b0;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.code-block-wrapper:hover .copy-button {
+  opacity: 1;
+}
+
+.copy-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* Highlight.js overrides for dark code blocks */
+.hljs {
+  background: #1e1e2e !important;
+  color: #cdd6f4 !important;
+}
+
+.hljs-keyword {
+  color: #cba6f7 !important;
+}
+
+.hljs-string {
+  color: #a6e3a1 !important;
+}
+
+.hljs-number {
+  color: #fab387 !important;
+}
+
+.hljs-comment {
+  color: #6c7086 !important;
+  font-style: italic;
+}
+
+.hljs-function {
+  color: #89b4fa !important;
+}
+
+.hljs-title {
+  color: #89b4fa !important;
+}
+
+.hljs-built_in {
+  color: #f9e2af !important;
+}
+
+.hljs-type {
+  color: #f9e2af !important;
+}
+
+.hljs-attr {
+  color: #89dceb !important;
+}
+
+.hljs-variable {
+  color: #cdd6f4 !important;
+}
+
+.hljs-operator {
+  color: #89dceb !important;
+}
