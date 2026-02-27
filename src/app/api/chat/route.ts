@@ -8,30 +8,27 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
     try {
-        console.log('--- API Call Started ---');
+        console.log('--- [Shin-kun] API Request Received ---');
         const { messages } = await request.json();
-        const apiKey = process.env.OPENROUTER_API_KEY;
+
+        // APIキーのクリーンアップ（空白や引用符を徹底的に除去）
+        let apiKey = process.env.OPENROUTER_API_KEY || '';
+        apiKey = apiKey.trim().replace(/^["']|["']$/g, '');
 
         if (!apiKey) {
-            console.error('Error: OPENROUTER_API_KEY is missing');
-            return new Response(
-                JSON.stringify({ error: 'APIキーが設定されていません。' }),
-                { status: 500, headers: { 'Content-Type': 'application/json' } }
-            );
+            console.error('!!! CRITICAL: OPENROUTER_API_KEY is empty !!!');
+            return new Response(JSON.stringify({ error: 'APIキーが未設定です。' }), { status: 500 });
         }
 
         const systemMessage = { role: 'system', content: SYSTEM_PROMPT };
         const conversationMessages = [systemMessage, ...messages.slice(-40)];
 
-        console.log('Fetching initial response from OpenRouter...');
-
-        // OpenRouter への接続（最初の判定）
+        console.log('Step 1: Calling OpenRouter for initial detection...');
         const initialResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey.trim()}`, // trim() で余計な空白を除去
+                'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
-                // リファラーによるエラーを防ぐため設定を緩和
                 'HTTP-Referer': 'https://github.com/shizuki/shin-kun',
                 'X-Title': 'Shin-kun',
             },
@@ -45,42 +42,36 @@ export async function POST(request: NextRequest) {
 
         if (!initialResponse.ok) {
             const errorText = await initialResponse.text();
-            console.error(`OpenRouter API Error: ${initialResponse.status}`, errorText);
-            return new Response(
-                JSON.stringify({ error: `AI通信エラー: ${initialResponse.status}` }),
-                { status: initialResponse.status, headers: { 'Content-Type': 'application/json' } }
-            );
+            console.error(`!!! OpenRouter API Error [${initialResponse.status}] !!!`, errorText);
+            return new Response(JSON.stringify({ error: `AI側エラー: ${initialResponse.status}` }), { status: initialResponse.status });
         }
 
         const initialData = await initialResponse.json();
         const choice = initialData.choices?.[0];
 
-        // ツール（Web検索）が呼ばれた場合
-        if (choice?.message?.tool_calls && choice.message.tool_calls.length > 0) {
+        // ツール（Web検索）判定
+        if (choice?.message?.tool_calls?.length > 0) {
             const toolCall = choice.message.tool_calls[0];
-            console.log('Tool call detected:', toolCall.function.name);
+            console.log('Step 2: Tool call detected ->', toolCall.function.name);
 
             if (toolCall.function.name === 'web_search') {
                 const args = JSON.parse(toolCall.function.arguments);
                 const searchQuery = args.query;
 
-                console.log('Performing web search for:', searchQuery);
+                console.log('Step 2.5: Performing Serper search for:', searchQuery);
                 const searchResults = await performWebSearch(searchQuery);
 
                 const messagesWithTools = [
                     ...conversationMessages,
                     choice.message,
-                    {
-                        role: 'tool',
-                        tool_call_id: toolCall.id,
-                        content: searchResults,
-                    },
+                    { role: 'tool', tool_call_id: toolCall.id, content: searchResults },
                 ];
 
+                console.log('Step 3: Fetching final streamed response (After search)...');
                 const finalResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${apiKey.trim()}`,
+                        'Authorization': `Bearer ${apiKey}`,
                         'Content-Type': 'application/json',
                         'HTTP-Referer': 'https://github.com/shizuki/shin-kun',
                         'X-Title': 'Shin-kun',
@@ -96,11 +87,11 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        console.log('Starting direct stream response...');
+        console.log('Step 2: No tool needed. Fetching direct stream...');
         const streamResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey.trim()}`,
+                'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
                 'HTTP-Referer': 'https://github.com/shizuki/shin-kun',
                 'X-Title': 'Shin-kun',
@@ -114,22 +105,20 @@ export async function POST(request: NextRequest) {
 
         return createStreamResponse(streamResponse);
     } catch (error) {
-        console.error('--- Server Error ---');
+        console.error('!!! FATAL SERVER ERROR !!!');
         console.error(error);
-        return new Response(
-            JSON.stringify({ error: `サーバーエラーが発生しました。` }),
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'サーバー内で予期せぬエラーが発生しました。' }), { status: 500 });
     }
 }
 
 async function createStreamResponse(response: Response, isSearch = false, searchQuery?: string) {
     if (!response.ok) {
         const text = await response.text();
-        console.error('Stream Error:', response.status, text);
-        return new Response(JSON.stringify({ error: 'Stream error' }), { status: 500 });
+        console.error('!!! Stream Initiation Failed !!!', response.status, text);
+        return new Response(JSON.stringify({ error: 'AIとの接続に失敗しました。' }), { status: 500 });
     }
 
+    console.log('Step 4: Stream connected. Starting to read data...');
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
@@ -137,19 +126,19 @@ async function createStreamResponse(response: Response, isSearch = false, search
         async start(controller) {
             try {
                 if (isSearch && searchQuery) {
-                    const meta = JSON.stringify({ searchQuery, searchPerformed: true });
-                    controller.enqueue(encoder.encode(`data: ${meta}\n\n`));
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ searchQuery, searchPerformed: true })}\n\n`));
                 }
 
                 const reader = response.body?.getReader();
-                if (!reader) {
-                    controller.close();
-                    return;
-                }
+                if (!reader) throw new Error('Response body is null');
 
+                let chunkCount = 0;
                 while (true) {
                     const { done, value } = await reader.read();
-                    if (done) break;
+                    if (done) {
+                        console.log(`Stream finished. Total chunks: ${chunkCount}`);
+                        break;
+                    }
 
                     const chunk = decoder.decode(value, { stream: true });
                     const lines = chunk.split('\n');
@@ -160,16 +149,19 @@ async function createStreamResponse(response: Response, isSearch = false, search
                                 const data = JSON.parse(line.slice(6));
                                 const content = data.choices?.[0]?.delta?.content;
                                 if (content) {
+                                    if (chunkCount === 0) console.log('>>> FIRST CONTENT CHUNK RECEIVED <<<');
+                                    chunkCount++;
                                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
                                 }
                             } catch { }
                         } else if (line === 'data: [DONE]') {
+                            console.log('Stream received [DONE] signal');
                             controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                         }
                     }
                 }
             } catch (error) {
-                console.error('Stream Reading Error:', error);
+                console.error('!!! Error inside ReadableStream !!!', error);
             } finally {
                 controller.close();
             }
