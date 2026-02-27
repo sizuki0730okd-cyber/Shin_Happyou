@@ -53,12 +53,14 @@ async function performWebSearch(query: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
     try {
+        console.log('--- API Call Started ---');
         const { messages } = await request.json();
         const apiKey = process.env.OPENROUTER_API_KEY;
 
         if (!apiKey) {
+            console.error('Error: OPENROUTER_API_KEY is missing');
             return new Response(
-                JSON.stringify({ error: 'OPENROUTER_API_KEY が設定されていません。.env.local ファイルを確認してください。' }),
+                JSON.stringify({ error: 'OPENROUTER_API_KEY が設定されていません。' }),
                 { status: 500, headers: { 'Content-Type': 'application/json' } }
             );
         }
@@ -66,6 +68,7 @@ export async function POST(request: NextRequest) {
         const systemMessage = { role: 'system', content: SYSTEM_PROMPT };
         const conversationMessages = [systemMessage, ...messages.slice(-40)];
 
+        console.log('Fetching initial response from OpenRouter...');
         // First call: check if tool use is needed
         const initialResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
@@ -73,23 +76,21 @@ export async function POST(request: NextRequest) {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
                 'HTTP-Referer': 'https://shin-kun.vercel.app',
-                'X-Title': 'Shin-kun',
+                'X-Title': 'Shin-kun', // 確実に英語にする
             },
             body: JSON.stringify({
                 model: MODEL_ID,
                 messages: conversationMessages,
                 tools: [SEARCH_TOOL],
                 tool_choice: 'auto',
-                temperature: 0.7,
-                top_p: 0.9,
-                max_tokens: 4096,
             }),
         });
 
         if (!initialResponse.ok) {
             const errorText = await initialResponse.text();
+            console.error(`OpenRouter API Error: ${initialResponse.status}`, errorText);
             return new Response(
-                JSON.stringify({ error: `OpenRouter API エラー: ${initialResponse.status} - ${errorText}` }),
+                JSON.stringify({ error: `APIエラー: ${initialResponse.status}` }),
                 { status: initialResponse.status, headers: { 'Content-Type': 'application/json' } }
             );
         }
@@ -97,25 +98,18 @@ export async function POST(request: NextRequest) {
         const initialData = await initialResponse.json();
         const choice = initialData.choices?.[0];
 
-        if (!choice) {
-            return new Response(
-                JSON.stringify({ error: 'レスポンスが空です' }),
-                { status: 500, headers: { 'Content-Type': 'application/json' } }
-            );
-        }
-
         // Check if the model wants to use a tool
-        if (choice.message?.tool_calls && choice.message.tool_calls.length > 0) {
+        if (choice?.message?.tool_calls && choice.message.tool_calls.length > 0) {
             const toolCall = choice.message.tool_calls[0];
+            console.log('Tool call detected:', toolCall.function.name);
 
             if (toolCall.function.name === 'web_search') {
                 const args = JSON.parse(toolCall.function.arguments);
                 const searchQuery = args.query;
 
-                // Perform web search
+                console.log('Performing web search for:', searchQuery);
                 const searchResults = await performWebSearch(searchQuery);
 
-                // Build messages with tool results
                 const messagesWithTools = [
                     ...conversationMessages,
                     choice.message,
@@ -126,7 +120,6 @@ export async function POST(request: NextRequest) {
                     },
                 ];
 
-                // Stream the final response
                 const finalResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
                     headers: {
@@ -139,79 +132,15 @@ export async function POST(request: NextRequest) {
                         model: MODEL_ID,
                         messages: messagesWithTools,
                         stream: true,
-                        temperature: 0.7,
-                        top_p: 0.9,
-                        max_tokens: 4096,
                     }),
                 });
 
-                if (!finalResponse.ok) {
-                    const errorText = await finalResponse.text();
-                    return new Response(
-                        JSON.stringify({ error: `OpenRouter API エラー (search follow-up): ${finalResponse.status} - ${errorText}` }),
-                        { status: finalResponse.status, headers: { 'Content-Type': 'application/json' } }
-                    );
-                }
-
-                // Return streaming response with search metadata
-                const encoder = new TextEncoder();
-                const searchMetaChunk = encoder.encode(`data: ${JSON.stringify({ searchQuery, searchPerformed: true })}\n\n`);
-
-                const stream = new ReadableStream({
-                    async start(controller) {
-                        controller.enqueue(searchMetaChunk);
-
-                        const reader = finalResponse.body?.getReader();
-                        if (!reader) {
-                            controller.close();
-                            return;
-                        }
-
-                        const decoder = new TextDecoder();
-
-                        try {
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-
-                                const chunk = decoder.decode(value, { stream: true });
-                                const lines = chunk.split('\n');
-
-                                for (const line of lines) {
-                                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                                        try {
-                                            const data = JSON.parse(line.slice(6));
-                                            const content = data.choices?.[0]?.delta?.content;
-                                            if (content) {
-                                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-                                            }
-                                        } catch {
-                                            // Skip malformed JSON lines
-                                        }
-                                    } else if (line === 'data: [DONE]') {
-                                        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                                    }
-                                }
-                            }
-                        } catch (error) {
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String(error) })}\n\n`));
-                        } finally {
-                            controller.close();
-                        }
-                    },
-                });
-
-                return new Response(stream, {
-                    headers: {
-                        'Content-Type': 'text/event-stream',
-                        'Cache-Control': 'no-cache',
-                        'Connection': 'keep-alive',
-                    },
-                });
+                // (以下、ストリーム処理...変更なし)
+                return createStreamResponse(finalResponse, true, searchQuery);
             }
         }
 
-        // No tool call needed - stream the response directly
+        console.log('Starting direct stream response...');
         const streamResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -224,74 +153,79 @@ export async function POST(request: NextRequest) {
                 model: MODEL_ID,
                 messages: conversationMessages,
                 stream: true,
-                temperature: 0.7,
-                top_p: 0.9,
-                max_tokens: 4096,
             }),
         });
 
-        if (!streamResponse.ok) {
-            const errorText = await streamResponse.text();
-            return new Response(
-                JSON.stringify({ error: `OpenRouter API エラー (stream): ${streamResponse.status} - ${errorText}` }),
-                { status: streamResponse.status, headers: { 'Content-Type': 'application/json' } }
-            );
-        }
-
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-            async start(controller) {
-                const reader = streamResponse.body?.getReader();
-                if (!reader) {
-                    controller.close();
-                    return;
-                }
-
-                const decoder = new TextDecoder();
-
-                try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        const chunk = decoder.decode(value, { stream: true });
-                        const lines = chunk.split('\n');
-
-                        for (const line of lines) {
-                            if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                                try {
-                                    const data = JSON.parse(line.slice(6));
-                                    const content = data.choices?.[0]?.delta?.content;
-                                    if (content) {
-                                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-                                    }
-                                } catch {
-                                    // Skip malformed JSON lines
-                                }
-                            } else if (line === 'data: [DONE]') {
-                                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                            }
-                        }
-                    }
-                } catch (error) {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String(error) })}\n\n`));
-                } finally {
-                    controller.close();
-                }
-            },
-        });
-
-        return new Response(stream, {
-            headers: {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
-            },
-        });
+        return createStreamResponse(streamResponse);
     } catch (error) {
+        console.error('--- Server Error ---');
+        console.error(error);
         return new Response(
             JSON.stringify({ error: `サーバーエラー: ${String(error)}` }),
             { status: 500, headers: { 'Content-Type': 'application/json' } }
         );
     }
+}
+
+// 共通のストリーム処理を関数化（重複ミスを防ぐため）
+async function createStreamResponse(response: Response, isSearch = false, searchQuery?: string) {
+    if (!response.ok) {
+        const text = await response.text();
+        console.error('Stream Error:', response.status, text);
+        return new Response(JSON.stringify({ error: 'Stream error' }), { status: 500 });
+    }
+
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    const stream = new ReadableStream({
+        async start(controller) {
+            if (isSearch && searchQuery) {
+                const meta = JSON.stringify({ searchQuery, searchPerformed: true });
+                controller.enqueue(encoder.encode(`data: ${meta}\n\n`));
+            }
+
+            const reader = response.body?.getReader();
+            if (!reader) {
+                controller.close();
+                return;
+            }
+
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                const content = data.choices?.[0]?.delta?.content;
+                                if (content) {
+                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+                                }
+                            } catch { }
+                        } else if (line === 'data: [DONE]') {
+                            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Stream Reading Error:', error);
+            } finally {
+                controller.close();
+            }
+        },
+    });
+
+    return new Response(stream, {
+        headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+        },
+    });
 }
