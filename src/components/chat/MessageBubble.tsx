@@ -125,7 +125,7 @@ export default function MessageBubble({
         >
             {/* Avatar for assistant */}
             {!isUser && (
-                <div className="flex-shrink-0 mr-3 mt-1">
+                <div className="flex-shrink-0 mr-3 mt-3 sm:mt-4">
                     <div className="w-8 h-8 rounded-full overflow-hidden shadow-md border border-border">
                         <img
                             src="/shin_icon.png"
@@ -136,19 +136,19 @@ export default function MessageBubble({
                 </div>
             )}
 
-            <div className={cn('max-w-[80%] md:max-w-[70%] group relative')}>
+            <div className={cn('max-w-[75%] md:max-w-[80%] group relative')}>
                 <div
                     className={cn(
-                        'rounded-3xl px-6 py-4 shadow-md',
+                        'rounded-2xl px-10 sm:px-12 py-6 sm:py-7 shadow-sm',
                         isUser
-                            ? 'bg-user-bubble text-user-bubble-text rounded-br-md'
-                            : 'bg-assistant-bubble text-assistant-bubble-text rounded-bl-md border border-border'
+                            ? 'bg-user-bubble text-user-bubble-text rounded-br-md shadow-md'
+                            : 'bg-assistant-bubble text-assistant-bubble-text rounded-bl-md border border-border/50'
                     )}
                 >
                     {isUser ? (
-                        <p className="whitespace-pre-wrap leading-relaxed text-[0.95rem]">{message.content}</p>
+                        <p className="whitespace-pre-wrap leading-loose text-base">{message.content}</p>
                     ) : (
-                        <div className="markdown-body text-[0.95rem]">
+                        <div className="markdown-body text-base">
                             <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 rehypePlugins={[rehypeHighlight]}

@@ -17,7 +17,7 @@ export default function TypingIndicator({ isSearching, searchQuery }: TypingIndi
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
         >
-            <div className="flex-shrink-0 mr-3 mt-1">
+            <div className="flex-shrink-0 mr-3 mt-3 sm:mt-4">
                 <div className="w-8 h-8 rounded-full overflow-hidden shadow-md border border-border">
                     <img
                         src="/shin_icon.png"
@@ -27,8 +27,8 @@ export default function TypingIndicator({ isSearching, searchQuery }: TypingIndi
                 </div>
             </div>
 
-            <div className="bg-assistant-bubble text-assistant-bubble-text rounded-2xl rounded-bl-md 
-                      px-4 py-3 shadow-sm border border-border">
+            <div className="bg-assistant-bubble text-assistant-bubble-text rounded-3xl rounded-bl-md 
+                      px-6 py-4 shadow-sm border border-border/50">
                 {isSearching ? (
                     <div className="flex items-center gap-2 search-pulse">
                         <Search size={14} className="text-primary" />
@@ -38,9 +38,9 @@ export default function TypingIndicator({ isSearching, searchQuery }: TypingIndi
                     </div>
                 ) : (
                     <div className="dot-animation flex items-center gap-1.5 py-1 px-1">
-                        <span className="w-2 h-2 rounded-full bg-muted-foreground" />
-                        <span className="w-2 h-2 rounded-full bg-muted-foreground" />
-                        <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#a38c75]" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#a38c75]" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#a38c75]" />
                     </div>
                 )}
             </div>

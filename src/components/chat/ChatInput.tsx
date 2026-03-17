@@ -51,9 +51,9 @@ export default function ChatInput({ onSend, onStop, isLoading, disabled }: ChatI
         <div className="border-t border-border bg-background/80 backdrop-blur-sm px-4 py-4 md:py-6">
             <div className="max-w-4xl mx-auto">
                 <div className={cn(
-                    "flex items-end gap-2 bg-input-bg border rounded-2xl px-4 py-3 md:px-6",
+                    "flex items-end gap-2 bg-input-bg border rounded-3xl px-4 py-3 md:px-6",
                     "transition-colors duration-200",
-                    "border-input-border focus-within:border-input-focus focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.1)]"
+                    "border-input-border focus-within:border-input-focus focus-within:shadow-[0_0_0_2px_rgba(75,106,81,0.15)]"
                 )}>
                     <textarea
                         ref={textareaRef}
@@ -73,7 +73,7 @@ export default function ChatInput({ onSend, onStop, isLoading, disabled }: ChatI
                             onClick={onStop}
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className="flex-shrink-0 w-9 h-9 rounded-xl bg-red-500 hover:bg-red-600
+                            className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600
                          flex items-center justify-center transition-colors mb-0.5"
                             title="生成を停止"
                         >
@@ -86,7 +86,7 @@ export default function ChatInput({ onSend, onStop, isLoading, disabled }: ChatI
                             whileHover={canSend ? { scale: 1.05 } : {}}
                             whileTap={canSend ? { scale: 0.95 } : {}}
                             className={cn(
-                                "flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all mb-0.5",
+                                "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all mb-0.5",
                                 canSend
                                     ? "bg-primary hover:bg-primary-hover text-white shadow-md"
                                     : "bg-muted text-muted-foreground cursor-not-allowed"
